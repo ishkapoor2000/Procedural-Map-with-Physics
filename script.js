@@ -26,6 +26,8 @@ import {
 	AnimationMixer,
 	Raycaster,
 	AmbientLight,
+	MeshPhongMaterial,
+	BoxBufferGeometry,
 } from "https://cdn.skypack.dev/three@0.137";
 import { RGBELoader } from "https://cdn.skypack.dev/three-stdlib@2.8.5/loaders/RGBELoader";
 import { OrbitControls } from "https://cdn.skypack.dev/three-stdlib@2.8.5/controls/OrbitControls";
@@ -49,9 +51,8 @@ function start() {
 	initPhysicsWorld(); // DONE
 	initGraphicsWorld(); // DONE
 
-	// createGround();
-	// createHex();
-	// createGridHex();
+	createHex(); // DONE
+	createDropCubes(); // DONE
 
 	addEventhandlers(); // DONE
 
@@ -79,10 +80,10 @@ function initGraphicsWorld() {
 	camera = new PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 1000);
 	camera.position.set(-17, 31, 33);
 	camera.lookAt(0, 0, 0);
-	
-	let ambientLight = new AmbientLight( 0xcccccc, 0.5 );
-	ambientLight.position.set( 0, 10, 0 );
-	scene.add(ambientLight);
+
+	// let ambientLight = new AmbientLight( 0xcccccc, 0.5 );
+	// ambientLight.position.set( 0, 10, 0 );
+	// scene.add(ambientLight);
 
 	renderer = new WebGLRenderer({ antialisa: true });
 	renderer.setSize(window.innerWidth, window.innerHeight);
@@ -107,7 +108,9 @@ function initGraphicsWorld() {
 
 	scene.fog = new Fog(0xffffff, 200, 1000);
 
-	controls = new OrbitControls(camera, renderer.domElement);
+	controls = new OrbitControls(
+		camera, renderer.domElement
+	);
 	controls.target.set(0, 0, 0);
 	controls.dampingFactor = 0.05;
 	controls.enableDamping = true;
@@ -139,21 +142,22 @@ function initGraphicsWorld() {
 				makeHex(noise * MAX_HEIGHT, position);
 			}
 		}
-		
+
 		let stoneMesh = hexMesh(stoneGeo, textures.stone);
 		let grassMesh = hexMesh(grassGeo, textures.grass);
 		let dirt2Mesh = hexMesh(dirt2Geo, textures.dirt2);
 		let dirtMesh = hexMesh(dirtGeo, textures.dirt);
 		let sandMesh = hexMesh(sandGeo, textures.sand);
 		scene.add(stoneMesh, grassMesh, dirt2Mesh, dirtMesh, sandMesh);
-	
+
 		let seaTexture = textures.water;
 		seaTexture.repeat = new Vector2(1, 1);
 		seaTexture.wrapS = RepeatWrapping;
 		seaTexture.wrapT = RepeatWrapping;
-	
+
 		let seaMesh = new Mesh(
-			new CylinderGeometry(17, 17, MAX_HEIGHT * 0.2, 50),
+			new CylinderGeometry(
+				17, 17, MAX_HEIGHT * 0.2, 50),
 			new MeshPhysicalMaterial({
 	    		envMap: envmap,
 			    color: new Color("#55aaff").convertSRGBToLinear().multiplyScalar(3),
@@ -171,9 +175,11 @@ function initGraphicsWorld() {
 		seaMesh.receiveShadow = true;
 		seaMesh.rotation.y = -Math.PI * 0.333 * 0.5;
 		seaMesh.position.set(0, MAX_HEIGHT * 0.1, 0);
+		seaMesh.name = "Sea-Cylinderical-Mesh";
 		scene.add(seaMesh);
 
 		floorObj(textures, envmap);
+
 		let cloudGroup = clouds();
 		scene.add(cloudGroup);
 		cloudGroup.position.y += 10;
@@ -188,7 +194,7 @@ function initGraphicsWorld() {
 			let deltaTime = clock.getDelta();
 			updatePhysicsWorld(deltaTime);
 			renderer.render(scene, camera);
-			seaMesh.rotation.y += 0.0015;
+			seaMesh.rotation.y -= 0.0015;
 			cloudGroup.rotation.y += 0.003;
 		});
 	console.log("Async function being executed.");
@@ -267,6 +273,7 @@ function hexMesh(geo, map) {
 	});
 
 	let mesh = new Mesh(geo, mat);
+	mesh.name = "Hex-Mesh";
 	mesh.castShadow = true;
 	mesh.recieveShadow = true;
 
@@ -335,6 +342,7 @@ function clouds() {
 			opacity: 0.65,
 		})
 	);
+	mesh.name = "Cloud-Spherical-Mesh";
 
   // scene.add(mesh);
 	return mesh;
@@ -343,61 +351,73 @@ function clouds() {
 function floorObj(textures, envmap) {
 
 	let mapContainer = new Mesh(
-			new CylinderGeometry(17.1, 17.1, MAX_HEIGHT * 0.25, 50, 1, true),
-			new MeshPhysicalMaterial({
-				envMap: envmap,
-				map: textures.dirt,
-				envMapIntensity: 0.2,
-				side: DoubleSide
-			})
-		);
+		new CylinderGeometry(17.1, 17.1, MAX_HEIGHT * 0.25, 50, 1, true),
+		new MeshPhysicalMaterial({
+			envMap: envmap,
+			map: textures.dirt,
+			envMapIntensity: 0.2,
+			side: DoubleSide
+		})
+	);
 	mapContainer.receiveShadow = true;
-	mapContainer.position.set(0, MAX_HEIGHT * 0.125, 0);
+	mapContainer.position.set(new Vector3(0, MAX_HEIGHT * 0.125, 0));
+	mapContainer.name = "Map-Container-Hollow-Cylinderical-Mesh";
 	scene.add(mapContainer);
 
-	let quaternion = {x: 0.383, y: 0, z: 0.383, w: 0.924};
-	let mapContainerTransform = new Ammo.btTransform();
-	mapContainerTransform.setIdentity();
-	mapContainerTransform.setOrigin(new Ammo.btVector3(
-		0, MAX_HEIGHT * 0.125, 0
-	));
-	mapContainerTransform.setRotation(new Ammo.btQuaternion(
-		quaternion.x, quaternion.y, quaternion.z, quaternion.w
-	));
-	let mapContainerMotionState = new Ammo.btDefaultMotionState(
-		mapContainerTransform
-	);
-	let mapContainerColShape = new Ammo.btCylinderShape(new Ammo.btVector3(radius, MAX_HEIGHT * 0.125, radius));
-	mapContainerColShape.setMargin(0);
-	let mapContainerLocalInertia = new Ammo.btVector3(0, 0, 0);
-	mapContainerColShape.calculateLocalInertia(0, mapContainerLocalInertia);
-
-	let mapContainerRBInfo = new Ammo.btRigidBodyConstructionInfo(
-		0,
-		mapContainerMotionState,
-		mapContainerColShape,
-		mapContainerLocalInertia
-	);
-	let mapContainerBody = new Ammo.btRigidBody(mapContainerRBInfo);
-
-	physicsWorld.addRigidBody(mapContainerBody);
-
-	mapContainer.userData.physicsBody = mapContainerBody;
-	rigidBody_List.push(mapContainer);
+	addPhysics(mapContainer, 17.1, MAX_HEIGHT * 0.25 * 0.5, new Vector3(0, MAX_HEIGHT * 0.125, 0), 0, {x: 0.383, y: 0, z: 0.383, w: 0}, 1);
 
 
 	let mapFloor = new Mesh(
-	new CylinderGeometry(18.5, 18.5, MAX_HEIGHT * 0.1, 50),
-	new MeshPhysicalMaterial({
-		envMap: envmap,
-		map: textures.dirt,
-		envMapIntensity: 0.1,
-		side: DoubleSide
+		new CylinderGeometry(
+			18.5, 18.5, MAX_HEIGHT * 0.1, 50
+		),
+		new MeshPhysicalMaterial({
+			envMap: envmap,
+			map: textures.dirt,
+			envMapIntensity: 0.1,
+			side: DoubleSide
 		})
 	);
 	mapFloor.receiveShadow = true;
 	mapFloor.position.set(0, -MAX_HEIGHT * 0.05, 0);
+	mapFloor.name = "MapFloor-Cylinderical-Mesh";
 	scene.add(mapFloor);
+
+	let mapFloorTransform = new Ammo.btTransform();
+	mapFloorTransform.setIdentity();
+	mapFloorTransform.setOrigin(new Ammo.btVector3(
+		0, -MAX_HEIGHT * 0.05, 0
+	));
+	mapFloorTransform.setRotation(new Ammo.btQuaternion(
+		mapFloorQuaternion.x, mapFloorQuaternion.y,
+		mapFloorQuaternion.z, mapFloorQuaternion.w
+	));
+	let mapFloorMotionState = new Ammo.btDefaultMotionState(
+		mapFloorTransform
+	);
+	let mapFloorColShape = new Ammo.btCylinderShape(
+		new Ammo.btVector3(
+			18.5, MAX_HEIGHT * 0.1, 18.5
+		));
+	mapFloorColShape.setMargin(0);
+	let mapFloorLocalInertia = new Ammo.btVector3(0, 0, 0);
+	mapFloorColShape.calculateLocalInertia(
+		0, mapFloorLocalInertia
+	);
+
+	let mapFloorRBInfo = new Ammo.btRigidBodyConstructionInfo(
+		0,
+		mapFloorMotionState,
+		mapFloorColShape,
+		mapFloorLocalInertia
+	);
+	let mapFloorBody = new Ammo.btRigidBody(mapFloorRBInfo);
+
+	physicsWorld.addRigidBody(mapFloorBody);
+
+	mapFloor.userData.physicsBody = mapFloorBody;
+	rigidBody_List.push(mapFloor);
+	// addPhysics(mapFloor, 18.5, MAX_HEIGHT * 0.1, new Vector3(0, MAX_HEIGHT * 0.05, 0), 0, {x: 0.383, y: 0, z: 0.383, w: 0}, 1);
 }
 
 function createPlayer(gltfModel) {
@@ -408,6 +428,11 @@ function createPlayer(gltfModel) {
 		PlaneMesh.rotation.y = Math.PI;
 		PlaneMesh.position.y += 15;
 		scene.add(PlaneMesh);
+		camera.lookAt(
+			PlaneMesh.position.x,
+			PlaneMesh.position.y,
+			PlaneMesh.position.z
+		);
 	});
 
 	document.onkeydown = function (e) {
@@ -465,8 +490,13 @@ function updatePhysicsWorld(deltaTime) {
 			let new_pos = tmpTransformation.getOrigin();
 			let new_qua = tmpTransformation.getRotation();
 
-			Graphics_Obj.position.set(new_pos.x(), new_pos.y(), new_pos.z());
-			Graphics_Obj.quaternion.set(new_qua.x(), new_qua.y(), new_qua.z(), new_qua.w());
+			Graphics_Obj.position.set(
+				new_pos.x(), new_pos.y(), new_pos.z()
+			);
+			Graphics_Obj.quaternion.set(
+				new_qua.x(), new_qua.y(),
+				new_qua.z(), new_qua.w()
+			);
 		}
 	}
 };
@@ -481,3 +511,101 @@ function updatePhysicsWorld(deltaTime) {
 // Add collectable assets [DONE]
 
 // CylinderGeometry(radiusTop : Float, radiusBottom : Float, height : Float, radialSegments : Integer, heightSegments : Integer, openEnded : Boolean, thetaStart : Float, thetaLength : Float)
+
+
+
+function createCube(scale, position, mass, color, quaternion) {
+	let newCube = new Mesh(
+		new BoxBufferGeometry(scale.x, scale.y, scale.z),
+		new MeshPhongMaterial({ color: color })
+	);
+	newCube.name = "Box"
+	newCube.position.set(position.x, position.y, position.z);
+	scene.add(newCube);
+
+	let transform = new Ammo.btTransform();
+	transform.setIdentity();
+
+	transform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
+	transform.setRotation(new Ammo.btQuaternion(quaternion.x, quaternion.y, quaternion.z, quaternion.w));
+	let defaultMotionState = new Ammo.btDefaultMotionState( transform );
+
+	let structColShape = new Ammo.btBoxShape(new Ammo.btVector3(scale.x*0.5, scale.y*0.5, scale.z*0.5));
+	structColShape.setMargin(0.05);
+
+	let localInertia = new Ammo.btVector3(0, 0, 0);
+	structColShape.calculateLocalInertia(mass, localInertia);
+
+	let rbInfo = new Ammo.btRigidBodyConstructionInfo(
+		mass,
+		defaultMotionState,
+		structColShape,
+		localInertia
+	);
+	let rBody = new Ammo.btRigidBody( rbInfo );
+
+	physicsWorld.addRigidBody( rBody );
+	
+	newCube.userData.physicsBody = rBody;
+	rigidBody_List.push(newCube);
+}
+
+function createDropCubes() {
+	createCube(
+		new Vector3(4, 2, 4),
+		new Vector3(14, 100, 0),
+		100,
+		0xfc09a6,
+		{x: 0, y: 0, z: 0, w: 1});
+	console.log("createDropCubes() executed");
+};
+
+function createCylinder(radius, height, position, mass, color, quaternion, factor) {
+	let newCylinder = new Mesh(
+		new CylinderGeometry(radius, radius, height, 6),
+		new MeshPhongMaterial({ color: color, flatShading: true })
+	);
+	newCylinder.position.set(position.x, position.y, position.z);+
+	scene.add(newCylinder);
+
+	addPhysics(newCylinder, radius, height, position, mass, quaternion, (Math.sqrt(3)/2));
+};
+
+function addPhysics(obj, radius, height, position, mass, quaternion) {
+	let transform = new Ammo.btTransform();
+	transform.setIdentity();
+
+	transform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
+	transform.setRotation(new Ammo.btQuaternion(quaternion.x, quaternion.y, quaternion.z, quaternion.w));
+	let motionState = new Ammo.btDefaultMotionState( transform );
+
+	let colShape = new Ammo.btCylinderShape(new Ammo.btVector3(radius*factor, height*0.5, radius*factor));
+	colShape.setMargin(0.05);
+
+	let localInertia = new Ammo.btVector3(0, 0, 0);
+	colShape.calculateLocalInertia(mass, localInertia);
+
+	let rbInfo = new Ammo.btRigidBodyConstructionInfo(
+		mass,
+		motionState,
+		colShape,
+		localInertia
+	);
+	let body = new Ammo.btRigidBody( rbInfo );
+
+	physicsWorld.addRigidBody( body );
+	
+	obj.userData.physicsBody = body;
+	rigidBody_List.push(obj);
+}
+
+function createHex() {
+	createCylinder(
+		5,
+		5,
+		new Vector3(0, 25, 0),
+		100,
+		0xff97ff,
+		{x: 0, y: 0, z: 0, w: 1});
+	console.log("createHex() executed");
+};
