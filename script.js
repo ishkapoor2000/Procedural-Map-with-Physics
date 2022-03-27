@@ -383,6 +383,12 @@ function floorObj(textures, envmap) {
 	mapFloor.name = "MapFloor-Cylinderical-Mesh";
 	scene.add(mapFloor);
 
+	let mapFloorQuaternion = {
+		x: 0.383,
+		y: 0,
+		z: 0.383,
+		w: 0
+	};
 	let mapFloorTransform = new Ammo.btTransform();
 	mapFloorTransform.setIdentity();
 	mapFloorTransform.setOrigin(new Ammo.btVector3(
@@ -571,7 +577,7 @@ function createCylinder(radius, height, position, mass, color, quaternion, facto
 	addPhysics(newCylinder, radius, height, position, mass, quaternion, (Math.sqrt(3)/2));
 };
 
-function addPhysics(obj, radius, height, position, mass, quaternion) {
+function addPhysics(obj, radius, height, position, mass, quaternion, factor) {
 	let transform = new Ammo.btTransform();
 	transform.setIdentity();
 
